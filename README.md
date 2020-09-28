@@ -1,5 +1,8 @@
 # Terraform Provider for Elastic Cloud
 
+This Repository is a fork of https://github.com/elastic/terraform-provider-ec , to be published to terraform provider registry.
+This is a temporary solution until the **elastic/ec** module is published.
+
 ![Go](https://github.com/elastic/terraform-provider-ec/workflows/Go/badge.svg?branch=master)
 
 #### This project is currently under active development. Source code is provided with no assurances, use at your own risk.
@@ -18,7 +21,8 @@ terraform {
 
   required_providers {
     ec = {
-      source = "elastic/ec"
+      source = "gsood/ec"
+      version = "1.0.0"
     }
   }
 }
