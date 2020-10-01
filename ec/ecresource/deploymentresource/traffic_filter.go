@@ -42,27 +42,23 @@ func flattenTrafficFiltering(settings *models.DeploymentSettings) *schema.Set {
 	return nil
 }
 
-// expandTrafficFilterCreate expands the flattened "traffic_filter" settings to
+// expandTrafficFilterCreate expands the flattened "traffic_filter" settings to be passed to
 // a DeploymentCreateRequest.
-func expandTrafficFilterCreate(set *schema.Set, req *models.DeploymentCreateRequest) {
-	if set == nil || req == nil {
-		return
+func expandTrafficFilterCreate(set *schema.Set)(*models.TrafficFilterSettings, error) {
+
+	if set == nil {
+		return nil, nil
 	}
 
 	if set.Len() == 0 {
-		return
+		return nil, nil
 	}
 
-	if req.Settings == nil {
-		req.Settings = &models.DeploymentCreateSettings{}
-	}
+	result := &models.TrafficFilterSettings{}
 
-	if req.Settings.TrafficFilterSettings == nil {
-		req.Settings.TrafficFilterSettings = &models.TrafficFilterSettings{}
-	}
-
-	req.Settings.TrafficFilterSettings.Rulesets = append(
-		req.Settings.TrafficFilterSettings.Rulesets,
+	result.Rulesets = append(
+		result.Rulesets,
 		util.ItemsToString(set.List())...,
 	)
+	return result, nil
 }

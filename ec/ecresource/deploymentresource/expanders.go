@@ -25,12 +25,17 @@ import (
 
 func createResourceToModel(d *schema.ResourceData) (*models.DeploymentCreateRequest, error) {
 	var result = models.DeploymentCreateRequest{
-		Name: d.Get("name").(string),
+		Name:     d.Get("name").(string),
 		Resources: &models.DeploymentCreateResources{
 			Apm:              make([]*models.ApmPayload, 0),
 			Elasticsearch:    make([]*models.ElasticsearchPayload, 0),
 			EnterpriseSearch: make([]*models.EnterpriseSearchPayload, 0),
 			Kibana:           make([]*models.KibanaPayload, 0),
+		},
+		Settings: &models.DeploymentCreateSettings{
+			IPFilteringSettings:   nil,
+			Observability:         &models.DeploymentObservabilitySettings{},
+			TrafficFilterSettings: &models.TrafficFilterSettings{},
 		},
 	}
 
@@ -61,7 +66,23 @@ func createResourceToModel(d *schema.ResourceData) (*models.DeploymentCreateRequ
 	}
 	result.Resources.EnterpriseSearch = append(result.Resources.EnterpriseSearch, enterpriseSearchRes...)
 
-	expandTrafficFilterCreate(d.Get("traffic_filter").(*schema.Set), &result)
+	trafficFilterRes, err :=  expandTrafficFilterCreate(d.Get("traffic_filter").(*schema.Set))
+	if err != nil {
+		return nil, err
+	}
+	result.Settings.TrafficFilterSettings = trafficFilterRes
+
+	refId := *esRes[0].RefID
+
+	observabilityRes, err :=  expandObservabilityCreate(d.Get("metrics_deployment_id").(string),d.Get("logging_deployment_id").(string), refId)
+	if err != nil {
+		return nil, err
+	}
+	result.Settings.Observability = observabilityRes
+
+	//expandTrafficFilterCreate(d.Get("traffic_filter").(*schema.Set), &result)
+
+	//expandMonitoringClusterCreate(d.Get("monitoring_cluster_id").(string), &result)
 
 	return &result, nil
 }
