@@ -21,7 +21,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
-// NewSchema returns the schema for an "ec_deployment" resource.
 func newApmResource() *schema.Resource {
 	return &schema.Resource{
 		Schema: map[string]*schema.Schema{
@@ -68,23 +67,31 @@ func newApmResource() *schema.Resource {
 func apmTopologySchema() *schema.Schema {
 	return &schema.Schema{
 		Type:     schema.TypeList,
-		Required: true,
+		Optional: true,
+		Computed: true,
 		Elem: &schema.Resource{
 			Schema: map[string]*schema.Schema{
 				"config": apmConfig(),
 
 				"instance_configuration_id": {
 					Type:     schema.TypeString,
-					Required: true,
-				},
-				"memory_per_node": {
-					Type:     schema.TypeString,
-					Default:  "0.5g",
 					Optional: true,
+					Computed: true,
+				},
+				"size": {
+					Type:     schema.TypeString,
+					Computed: true,
+					Optional: true,
+				},
+				"size_resource": {
+					Type:        schema.TypeString,
+					Description: `Optional size type, defaults to "memory".`,
+					Default:     "memory",
+					Optional:    true,
 				},
 				"zone_count": {
 					Type:     schema.TypeInt,
-					Default:  1,
+					Computed: true,
 					Optional: true,
 				},
 			},

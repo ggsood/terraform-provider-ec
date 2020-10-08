@@ -56,7 +56,7 @@ func Test_flattenEsResource(t *testing.T) {
 			want: []interface{}{},
 		},
 		{
-			name: "resource with no monitoring settings",
+			name: "parses an elasticsearch resource",
 			args: args{in: []*models.ElasticsearchResourceInfo{
 				{
 					Region: ec.String("some-region"),
@@ -64,6 +64,49 @@ func Test_flattenEsResource(t *testing.T) {
 					Info: &models.ElasticsearchClusterInfo{
 						ClusterID: &mock.ValidClusterID,
 						Region:    "some-region",
+						Status:    ec.String("started"),
+						Metadata: &models.ClusterMetadataInfo{
+							CloudID:  "some CLOUD ID",
+							Endpoint: "somecluster.cloud.elastic.co",
+							Ports: &models.ClusterMetadataPortInfo{
+								HTTP:  ec.Int32(9200),
+								HTTPS: ec.Int32(9243),
+							},
+						},
+						PlanInfo: &models.ElasticsearchClusterPlansInfo{
+							Current: &models.ElasticsearchClusterPlanInfo{
+								Plan: &models.ElasticsearchClusterPlan{
+									Elasticsearch: &models.ElasticsearchConfiguration{
+										Version: "7.7.0",
+									},
+									ClusterTopology: []*models.ElasticsearchClusterTopologyElement{
+										{
+											ZoneCount:               1,
+											InstanceConfigurationID: "aws.data.highio.i3",
+											Size: &models.TopologySize{
+												Resource: ec.String("memory"),
+												Value:    ec.Int32(2048),
+											},
+											NodeType: &models.ElasticsearchNodeType{
+												Data:   ec.Bool(true),
+												Ingest: ec.Bool(true),
+												Master: ec.Bool(true),
+												Ml:     ec.Bool(false),
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				{
+					Region: ec.String("some-region"),
+					RefID:  ec.String("main-elasticsearch"),
+					Info: &models.ElasticsearchClusterInfo{
+						ClusterID: &mock.ValidClusterID,
+						Region:    "some-region",
+						Status:    ec.String("stopped"),
 						Metadata: &models.ClusterMetadataInfo{
 							CloudID:  "some CLOUD ID",
 							Endpoint: "somecluster.cloud.elastic.co",
@@ -112,7 +155,8 @@ func Test_flattenEsResource(t *testing.T) {
 					"topology": []interface{}{
 						map[string]interface{}{
 							"instance_configuration_id": "aws.data.highio.i3",
-							"memory_per_node":           "2g",
+							"size":                      "2g",
+							"size_resource":             "memory",
 							"node_type_data":            true,
 							"node_type_ingest":          true,
 							"node_type_master":          true,
@@ -133,6 +177,7 @@ func Test_flattenEsResource(t *testing.T) {
 						ClusterID:   &mock.ValidClusterID,
 						ClusterName: ec.String("some-name"),
 						Region:      "some-region",
+						Status:      ec.String("started"),
 						Metadata: &models.ClusterMetadataInfo{
 							Endpoint: "othercluster.cloud.elastic.co",
 							Ports: &models.ClusterMetadataPortInfo{
@@ -184,7 +229,8 @@ func Test_flattenEsResource(t *testing.T) {
 					"topology": []interface{}{
 						map[string]interface{}{
 							"instance_configuration_id": "aws.data.highio.i3",
-							"memory_per_node":           "2g",
+							"size":                      "2g",
+							"size_resource":             "memory",
 							"node_type_data":            true,
 							"node_type_ingest":          true,
 							"node_type_master":          true,
@@ -208,6 +254,7 @@ func Test_flattenEsResource(t *testing.T) {
 						ClusterID:   &mock.ValidClusterID,
 						ClusterName: ec.String("some-name"),
 						Region:      "some-region",
+						Status:      ec.String("started"),
 						Metadata: &models.ClusterMetadataInfo{
 							Endpoint: "othercluster.cloud.elastic.co",
 							Ports: &models.ClusterMetadataPortInfo{
@@ -256,7 +303,8 @@ func Test_flattenEsResource(t *testing.T) {
 				"https_endpoint": "https://othercluster.cloud.elastic.co:9243",
 				"topology": []interface{}{map[string]interface{}{
 					"instance_configuration_id": "aws.data.highio.i3",
-					"memory_per_node":           "2g",
+					"size":                      "2g",
+					"size_resource":             "memory",
 					"node_type_data":            true,
 					"node_type_ingest":          true,
 					"node_type_master":          true,
@@ -317,7 +365,8 @@ func Test_flattenEsTopology(t *testing.T) {
 			want: []interface{}{
 				map[string]interface{}{
 					"instance_configuration_id": "aws.data.highio.i3",
-					"memory_per_node":           "4g",
+					"size":                      "4g",
+					"size_resource":             "memory",
 					"zone_count":                int32(1),
 					"node_type_data":            true,
 					"node_type_ingest":          true,

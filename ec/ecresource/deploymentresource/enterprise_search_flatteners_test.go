@@ -65,6 +65,51 @@ func Test_flattenEssResource(t *testing.T) {
 						ID:     &mock.ValidClusterID,
 						Name:   ec.String("some-enterprisesearch-name"),
 						Region: "some-region",
+						Status: ec.String("started"),
+						Metadata: &models.ClusterMetadataInfo{
+							Endpoint: "enterprisesearchresource.cloud.elastic.co",
+							Ports: &models.ClusterMetadataPortInfo{
+								HTTP:  ec.Int32(9200),
+								HTTPS: ec.Int32(9243),
+							},
+						},
+						PlanInfo: &models.EnterpriseSearchPlansInfo{
+							Current: &models.EnterpriseSearchPlanInfo{
+								Plan: &models.EnterpriseSearchPlan{
+									EnterpriseSearch: &models.EnterpriseSearchConfiguration{
+										Version:                  "7.7.0",
+										UserSettingsYaml:         "some.setting: some value",
+										UserSettingsOverrideYaml: "some.setting: some override",
+										UserSettingsJSON:         `{"some.setting": "some other value"}`,
+										UserSettingsOverrideJSON: `{"some.setting": "some other override"}`,
+									},
+									ClusterTopology: []*models.EnterpriseSearchTopologyElement{{
+										EnterpriseSearch:        &models.EnterpriseSearchConfiguration{},
+										ZoneCount:               1,
+										InstanceConfigurationID: "aws.enterprisesearch.r4",
+										Size: &models.TopologySize{
+											Resource: ec.String("memory"),
+											Value:    ec.Int32(1024),
+										},
+										NodeType: &models.EnterpriseSearchNodeTypes{
+											Appserver: ec.Bool(true),
+											Worker:    ec.Bool(false),
+										},
+									}},
+								},
+							},
+						},
+					},
+				},
+				{
+					Region:                    ec.String("some-region"),
+					RefID:                     ec.String("main-enterprise_search"),
+					ElasticsearchClusterRefID: ec.String("main-elasticsearch"),
+					Info: &models.EnterpriseSearchInfo{
+						ID:     &mock.ValidClusterID,
+						Name:   ec.String("some-enterprisesearch-name"),
+						Region: "some-region",
+						Status: ec.String("stopped"),
 						Metadata: &models.ClusterMetadataInfo{
 							Endpoint: "enterprisesearchresource.cloud.elastic.co",
 							Ports: &models.ClusterMetadataPortInfo{
@@ -118,7 +163,8 @@ func Test_flattenEssResource(t *testing.T) {
 					}},
 					"topology": []interface{}{map[string]interface{}{
 						"instance_configuration_id": "aws.enterprisesearch.r4",
-						"memory_per_node":           "1g",
+						"size":                      "1g",
+						"size_resource":             "memory",
 						"zone_count":                int32(1),
 						"node_type_appserver":       true,
 						"node_type_worker":          false,

@@ -17,9 +17,10 @@
 
 package deploymentresource
 
-import "github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+import (
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+)
 
-// NewSchema returns the schema for an "ec_deployment" resource.
 func newEnterpriseSearchResource() *schema.Resource {
 	return &schema.Resource{
 		Schema: map[string]*schema.Schema{
@@ -30,7 +31,7 @@ func newEnterpriseSearchResource() *schema.Resource {
 			},
 			"ref_id": {
 				Type:     schema.TypeString,
-				Default:  "main-enterprises_search",
+				Default:  "main-enterprise_search",
 				Optional: true,
 			},
 			"resource_id": {
@@ -66,23 +67,31 @@ func newEnterpriseSearchResource() *schema.Resource {
 func enterpriseSearchTopologySchema() *schema.Schema {
 	return &schema.Schema{
 		Type:     schema.TypeList,
-		Required: true,
+		Optional: true,
+		Computed: true,
 		Elem: &schema.Resource{
 			Schema: map[string]*schema.Schema{
 				"config": enterpriseSearchConfig(),
 
 				"instance_configuration_id": {
 					Type:     schema.TypeString,
-					Required: true,
-				},
-				"memory_per_node": {
-					Type:     schema.TypeString,
-					Default:  "2g",
 					Optional: true,
+					Computed: true,
+				},
+				"size": {
+					Type:     schema.TypeString,
+					Computed: true,
+					Optional: true,
+				},
+				"size_resource": {
+					Type:        schema.TypeString,
+					Description: `Optional size type, defaults to "memory".`,
+					Default:     "memory",
+					Optional:    true,
 				},
 				"zone_count": {
 					Type:     schema.TypeInt,
-					Default:  1,
+					Computed: true,
 					Optional: true,
 				},
 
@@ -90,18 +99,15 @@ func enterpriseSearchTopologySchema() *schema.Schema {
 
 				"node_type_appserver": {
 					Type:     schema.TypeBool,
-					Default:  true,
-					Optional: true,
+					Computed: true,
 				},
 				"node_type_connector": {
 					Type:     schema.TypeBool,
-					Default:  true,
-					Optional: true,
+					Computed: true,
 				},
 				"node_type_worker": {
 					Type:     schema.TypeBool,
-					Default:  true,
-					Optional: true,
+					Computed: true,
 				},
 			},
 		},

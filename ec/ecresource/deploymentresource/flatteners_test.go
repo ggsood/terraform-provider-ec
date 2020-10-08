@@ -26,15 +26,19 @@ import (
 	"github.com/elastic/cloud-sdk-go/pkg/util/ec"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/elastic/terraform-provider-ec/ec/internal/util"
 )
 
 func Test_modelToState(t *testing.T) {
-	deploymentSchemaArg := schema.TestResourceDataRaw(t, NewSchema(), nil)
+	deploymentSchemaArg := schema.TestResourceDataRaw(t, newSchema(), nil)
 	deploymentSchemaArg.SetId(mock.ValidClusterID)
+	_ = deploymentSchemaArg.Set("region", "us-east-1")
 
-	wantDeployment := newResourceData(t, resDataParams{
+	wantDeployment := util.NewResourceData(t, util.ResDataParams{
 		ID:        mock.ValidClusterID,
 		Resources: newSampleDeployment(),
+		Schema:    newSchema(),
 	})
 
 	type args struct {
@@ -62,12 +66,13 @@ func Test_modelToState(t *testing.T) {
 					Resources: &models.DeploymentResources{
 						Elasticsearch: []*models.ElasticsearchResourceInfo{
 							{
-								Region: ec.String("some-region"),
+								Region: ec.String("us-east-1"),
 								RefID:  ec.String("main-elasticsearch"),
 								Info: &models.ElasticsearchClusterInfo{
+									Status:      ec.String("started"),
 									ClusterID:   &mock.ValidClusterID,
 									ClusterName: ec.String("some-name"),
-									Region:      "some-region",
+									Region:      "us-east-1",
 									ElasticsearchMonitoringInfo: &models.ElasticsearchMonitoringInfo{
 										DestinationClusterIds: []string{"some"},
 									},
@@ -78,7 +83,7 @@ func Test_modelToState(t *testing.T) {
 													Version: "7.7.0",
 												},
 												DeploymentTemplate: &models.DeploymentTemplateReference{
-													ID: ec.String("aws-io-optimized"),
+													ID: ec.String("aws-io-optimized-v2"),
 												},
 												ClusterTopology: []*models.ElasticsearchClusterTopologyElement{{
 													ZoneCount:               1,
@@ -108,13 +113,14 @@ func Test_modelToState(t *testing.T) {
 						},
 						Kibana: []*models.KibanaResourceInfo{
 							{
-								Region:                    ec.String("some-region"),
+								Region:                    ec.String("us-east-1"),
 								RefID:                     ec.String("main-kibana"),
 								ElasticsearchClusterRefID: ec.String("main-elasticsearch"),
 								Info: &models.KibanaClusterInfo{
+									Status:      ec.String("started"),
 									ClusterID:   &mock.ValidClusterID,
 									ClusterName: ec.String("some-kibana-name"),
-									Region:      "some-region",
+									Region:      "us-east-1",
 									PlanInfo: &models.KibanaClusterPlansInfo{
 										Current: &models.KibanaClusterPlanInfo{
 											Plan: &models.KibanaClusterPlan{
@@ -124,7 +130,7 @@ func Test_modelToState(t *testing.T) {
 												ClusterTopology: []*models.KibanaClusterTopologyElement{
 													{
 														ZoneCount:               1,
-														InstanceConfigurationID: "aws.kibana.r4",
+														InstanceConfigurationID: "aws.kibana.r5d",
 														Size: &models.TopologySize{
 															Resource: ec.String("memory"),
 															Value:    ec.Int32(1024),
@@ -138,13 +144,14 @@ func Test_modelToState(t *testing.T) {
 							},
 						},
 						Apm: []*models.ApmResourceInfo{{
-							Region:                    ec.String("some-region"),
+							Region:                    ec.String("us-east-1"),
 							RefID:                     ec.String("main-apm"),
 							ElasticsearchClusterRefID: ec.String("main-elasticsearch"),
 							Info: &models.ApmInfo{
+								Status: ec.String("started"),
 								ID:     &mock.ValidClusterID,
 								Name:   ec.String("some-apm-name"),
-								Region: "some-region",
+								Region: "us-east-1",
 								PlanInfo: &models.ApmPlansInfo{
 									Current: &models.ApmPlanInfo{
 										Plan: &models.ApmPlan{
@@ -156,7 +163,7 @@ func Test_modelToState(t *testing.T) {
 											},
 											ClusterTopology: []*models.ApmTopologyElement{{
 												ZoneCount:               1,
-												InstanceConfigurationID: "aws.apm.r4",
+												InstanceConfigurationID: "aws.apm.r5d",
 												Size: &models.TopologySize{
 													Resource: ec.String("memory"),
 													Value:    ec.Int32(512),
@@ -174,13 +181,14 @@ func Test_modelToState(t *testing.T) {
 						}},
 						EnterpriseSearch: []*models.EnterpriseSearchResourceInfo{
 							{
-								Region:                    ec.String("some-region"),
+								Region:                    ec.String("us-east-1"),
 								RefID:                     ec.String("main-enterprise_search"),
 								ElasticsearchClusterRefID: ec.String("main-elasticsearch"),
 								Info: &models.EnterpriseSearchInfo{
+									Status: ec.String("started"),
 									ID:     &mock.ValidClusterID,
 									Name:   ec.String("some-enterprise_search-name"),
-									Region: "some-region",
+									Region: "us-east-1",
 									PlanInfo: &models.EnterpriseSearchPlansInfo{
 										Current: &models.EnterpriseSearchPlanInfo{
 											Plan: &models.EnterpriseSearchPlan{
@@ -190,7 +198,7 @@ func Test_modelToState(t *testing.T) {
 												ClusterTopology: []*models.EnterpriseSearchTopologyElement{
 													{
 														ZoneCount:               1,
-														InstanceConfigurationID: "aws.enterprisesearch.m5",
+														InstanceConfigurationID: "aws.enterprisesearch.m5d",
 														Size: &models.TopologySize{
 															Resource: ec.String("memory"),
 															Value:    ec.Int32(2048),
@@ -334,9 +342,10 @@ func Test_getDeploymentTemplateID(t *testing.T) {
 }
 
 func Test_parseCredentials(t *testing.T) {
-	deploymentRD := newResourceData(t, resDataParams{
+	deploymentRD := util.NewResourceData(t, util.ResDataParams{
 		ID:        mock.ValidClusterID,
 		Resources: newSampleDeployment(),
+		Schema:    newSchema(),
 	})
 
 	rawData := newSampleDeployment()
@@ -344,9 +353,10 @@ func Test_parseCredentials(t *testing.T) {
 	rawData["elasticsearch_password"] = "my-password"
 	rawData["apm_secret_token"] = "some-secret-token"
 
-	wantDeploymentRD := newResourceData(t, resDataParams{
+	wantDeploymentRD := util.NewResourceData(t, util.ResDataParams{
 		ID:        mock.ValidClusterID,
 		Resources: rawData,
+		Schema:    newSchema(),
 	})
 
 	type args struct {
@@ -376,9 +386,10 @@ func Test_parseCredentials(t *testing.T) {
 		{
 			name: "when no credentials are passed, it doesn't overwrite them",
 			args: args{
-				d: newResourceData(t, resDataParams{
+				d: util.NewResourceData(t, util.ResDataParams{
 					ID:        mock.ValidClusterID,
 					Resources: rawData,
+					Schema:    newSchema(),
 				}),
 				resources: []*models.DeploymentResource{
 					{},

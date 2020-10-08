@@ -18,28 +18,14 @@
 package deploymentresource
 
 import (
-	"testing"
-
 	"github.com/elastic/cloud-sdk-go/pkg/api/mock"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
-
-type resDataParams struct {
-	Resources map[string]interface{}
-	ID        string
-}
-
-func newResourceData(t *testing.T, params resDataParams) *schema.ResourceData {
-	raw := schema.TestResourceDataRaw(t, Resource().Schema, params.Resources)
-	raw.SetId(params.ID)
-
-	return raw
-}
 
 func newSampleDeployment() map[string]interface{} {
 	return map[string]interface{}{
 		"name":                   "my_deployment_name",
-		"deployment_template_id": "aws-io-optimized",
+		"deployment_template_id": "aws-io-optimized-v2",
+		"region":                 "us-east-1",
 		"elasticsearch":          []interface{}{newElasticsearchSample()},
 		"kibana":                 []interface{}{newKibanaSample()},
 		"apm":                    []interface{}{newApmSample()},
@@ -48,15 +34,97 @@ func newSampleDeployment() map[string]interface{} {
 	}
 }
 
+func newSampleDeploymentEmptyRD() map[string]interface{} {
+	return map[string]interface{}{
+		"name":                   "my_deployment_name",
+		"deployment_template_id": "aws-io-optimized-v2",
+		"region":                 "us-east-1",
+		"version":                "7.7.0",
+		"elasticsearch":          []interface{}{map[string]interface{}{}},
+		"kibana":                 []interface{}{map[string]interface{}{}},
+		"apm":                    []interface{}{map[string]interface{}{}},
+		"enterprise_search":      []interface{}{map[string]interface{}{}},
+		"traffic_filter":         []interface{}{"0.0.0.0/0", "192.168.10.0/24"},
+	}
+}
+
+func newSampleDeploymentOverrides() map[string]interface{} {
+	return map[string]interface{}{
+		"name":                   "my_deployment_name",
+		"deployment_template_id": "aws-io-optimized-v2",
+		"region":                 "us-east-1",
+		"version":                "7.7.0",
+		"elasticsearch": []interface{}{map[string]interface{}{
+			"ref_id": "main-elasticsearch",
+			"topology": []interface{}{map[string]interface{}{
+				"size": "4g",
+			}}},
+		},
+		"kibana": []interface{}{map[string]interface{}{
+			"ref_id": "main-kibana",
+			"topology": []interface{}{map[string]interface{}{
+				"size": "2g",
+			}}},
+		},
+		"apm": []interface{}{map[string]interface{}{
+			"ref_id": "main-apm",
+			"topology": []interface{}{map[string]interface{}{
+				"size": "1g",
+			}}},
+		},
+		"enterprise_search": []interface{}{map[string]interface{}{
+			"ref_id": "main-enterprise_search",
+			"topology": []interface{}{map[string]interface{}{
+				"size": "4g",
+			}}},
+		},
+		"traffic_filter": []interface{}{"0.0.0.0/0", "192.168.10.0/24"},
+	}
+}
+
+func newSampleDeploymentOverridesIC() map[string]interface{} {
+	return map[string]interface{}{
+		"name":                   "my_deployment_name",
+		"deployment_template_id": "aws-io-optimized-v2",
+		"region":                 "us-east-1",
+		"version":                "7.7.0",
+		"elasticsearch": []interface{}{map[string]interface{}{
+			"ref_id": "main-elasticsearch",
+			"topology": []interface{}{map[string]interface{}{
+				"instance_configuration_id": "aws.data.highio.i3",
+			}}},
+		},
+		"kibana": []interface{}{map[string]interface{}{
+			"ref_id": "main-kibana",
+			"topology": []interface{}{map[string]interface{}{
+				"instance_configuration_id": "aws.kibana.r5d",
+			}}},
+		},
+		"apm": []interface{}{map[string]interface{}{
+			"ref_id": "main-apm",
+			"topology": []interface{}{map[string]interface{}{
+				"instance_configuration_id": "aws.apm.r5d",
+			}}},
+		},
+		"enterprise_search": []interface{}{map[string]interface{}{
+			"ref_id": "main-enterprise_search",
+			"topology": []interface{}{map[string]interface{}{
+				"instance_configuration_id": "aws.enterprisesearch.m5d",
+			}}},
+		},
+		"traffic_filter": []interface{}{"0.0.0.0/0", "192.168.10.0/24"},
+	}
+}
+
 func newElasticsearchSample() map[string]interface{} {
 	return map[string]interface{}{
 		"ref_id":      "main-elasticsearch",
 		"resource_id": mock.ValidClusterID,
 		"version":     "7.7.0",
-		"region":      "some-region",
+		"region":      "us-east-1",
 		"topology": []interface{}{map[string]interface{}{
 			"instance_configuration_id": "aws.data.highio.i3",
-			"memory_per_node":           "2g",
+			"size":                      "2g",
 			"node_type_data":            true,
 			"node_type_ingest":          true,
 			"node_type_master":          true,
@@ -81,11 +149,11 @@ func newKibanaSample() map[string]interface{} {
 		"ref_id":                       "main-kibana",
 		"resource_id":                  mock.ValidClusterID,
 		"version":                      "7.7.0",
-		"region":                       "some-region",
+		"region":                       "us-east-1",
 		"topology": []interface{}{
 			map[string]interface{}{
-				"instance_configuration_id": "aws.kibana.r4",
-				"memory_per_node":           "1g",
+				"instance_configuration_id": "aws.kibana.r5d",
+				"size":                      "1g",
 				"zone_count":                1,
 			},
 		},
@@ -98,14 +166,14 @@ func newApmSample() map[string]interface{} {
 		"ref_id":                       "main-apm",
 		"resource_id":                  mock.ValidClusterID,
 		"version":                      "7.7.0",
-		"region":                       "some-region",
+		"region":                       "us-east-1",
 		// Reproduces the case where the default fields are set.
 		"config": []interface{}{map[string]interface{}{
 			"debug_enabled": false,
 		}},
 		"topology": []interface{}{map[string]interface{}{
-			"instance_configuration_id": "aws.apm.r4",
-			"memory_per_node":           "0.5g",
+			"instance_configuration_id": "aws.apm.r5d",
+			"size":                      "0.5g",
 			"zone_count":                1,
 			"config": []interface{}{map[string]interface{}{
 				"debug_enabled": false,
@@ -120,11 +188,11 @@ func newEnterpriseSearchSample() map[string]interface{} {
 		"ref_id":                       "main-enterprise_search",
 		"resource_id":                  mock.ValidClusterID,
 		"version":                      "7.7.0",
-		"region":                       "some-region",
+		"region":                       "us-east-1",
 		"topology": []interface{}{
 			map[string]interface{}{
-				"instance_configuration_id": "aws.enterprisesearch.m5",
-				"memory_per_node":           "2g",
+				"instance_configuration_id": "aws.enterprisesearch.m5d",
+				"size":                      "2g",
 				"zone_count":                1,
 				"node_type_appserver":       true,
 				"node_type_connector":       true,

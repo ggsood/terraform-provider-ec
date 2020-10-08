@@ -28,7 +28,7 @@ func flattenKibanaResources(in []*models.KibanaResourceInfo, name string) []inte
 	var result = make([]interface{}, 0, len(in))
 	for _, res := range in {
 		var m = make(map[string]interface{})
-		if util.IsCurrentKibanaPlanEmpty(res) {
+		if util.IsCurrentKibanaPlanEmpty(res) || isKibanaResourceStopped(res) {
 			continue
 		}
 
@@ -83,17 +83,10 @@ func flattenKibanaTopology(plan *models.KibanaClusterPlan) []interface{} {
 			m["instance_configuration_id"] = topology.InstanceConfigurationID
 		}
 
-		// TODO: Check legacy plans.
-		// if topology.MemoryPerNode > 0 {
-		// 	m["memory_per_node"] = strconv.Itoa(int(topology.MemoryPerNode))
-		// }
+		if topology.Size != nil {
+			m["size"] = util.MemoryToState(*topology.Size.Value)
+			m["size_resource"] = *topology.Size.Resource
 
-		if *topology.Size.Resource == "memory" {
-			m["memory_per_node"] = util.MemoryToState(*topology.Size.Value)
-		}
-
-		if topology.NodeCountPerZone > 0 {
-			m["node_count_per_zone"] = topology.NodeCountPerZone
 		}
 
 		m["zone_count"] = topology.ZoneCount

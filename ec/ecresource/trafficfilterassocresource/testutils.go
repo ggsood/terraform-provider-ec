@@ -18,25 +18,10 @@
 package trafficfilterassocresource
 
 import (
-	"testing"
-
 	"github.com/elastic/cloud-sdk-go/pkg/api/mock"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
 var mockTrafficFilterID = "420b7b540dfc967a7a649c18e2fce4e4"
-
-type resDataParams struct {
-	Resources map[string]interface{}
-	ID        string
-}
-
-func newResourceData(t *testing.T, params resDataParams) *schema.ResourceData {
-	raw := schema.TestResourceDataRaw(t, NewSchema(), params.Resources)
-	raw.SetId(params.ID)
-
-	return raw
-}
 
 func newSampleTrafficFilterAssociation() map[string]interface{} {
 	return map[string]interface{}{

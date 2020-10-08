@@ -18,6 +18,7 @@
 package deploymentresource
 
 import (
+	"fmt"
 	"reflect"
 
 	"github.com/elastic/cloud-sdk-go/pkg/models"
@@ -28,14 +29,14 @@ import (
 )
 
 // expandEsResources expands Elasticsearch resources
-func expandEsResources(ess []interface{}, dt string) ([]*models.ElasticsearchPayload, error) {
+func expandEsResources(ess []interface{}, tpl *models.ElasticsearchPayload) ([]*models.ElasticsearchPayload, error) {
 	if len(ess) == 0 {
 		return nil, nil
 	}
 
 	result := make([]*models.ElasticsearchPayload, 0, len(ess))
 	for _, raw := range ess {
-		resResource, err := expandEsResource(raw, dt)
+		resResource, err := expandEsResource(raw, tpl)
 		if err != nil {
 			return nil, err
 		}
@@ -46,17 +47,9 @@ func expandEsResources(ess []interface{}, dt string) ([]*models.ElasticsearchPay
 }
 
 // expandEsResource expands a single Elasticsearch resource
-func expandEsResource(raw interface{}, dt string) (*models.ElasticsearchPayload, error) {
+func expandEsResource(raw interface{}, res *models.ElasticsearchPayload) (*models.ElasticsearchPayload, error) {
 	var es = raw.(map[string]interface{})
-	var res = models.ElasticsearchPayload{
-		Plan: &models.ElasticsearchClusterPlan{
-			Elasticsearch: &models.ElasticsearchConfiguration{},
-			DeploymentTemplate: &models.DeploymentTemplateReference{
-				ID: ec.String(dt),
-			},
-		},
-		Settings: &models.ElasticsearchClusterSettings{},
-	}
+
 	if refID, ok := es["ref_id"]; ok {
 		res.RefID = ec.String(refID.(string))
 	}
@@ -71,20 +64,19 @@ func expandEsResource(raw interface{}, dt string) (*models.ElasticsearchPayload,
 		}
 	}
 
-	if rawTopology, ok := es["topology"]; ok {
-		topology, err := expandEsTopology(rawTopology)
+	if rt, ok := es["topology"]; ok && len(rt.([]interface{})) > 0 {
+		topology, err := expandEsTopology(rt, res.Plan.ClusterTopology)
 		if err != nil {
 			return nil, err
 		}
 		res.Plan.ClusterTopology = topology
+	} else {
+		res.Plan.ClusterTopology = defaultEsTopology(res.Plan.ClusterTopology)
 	}
 
 	if cfg, ok := es["config"]; ok {
-		if c := expandEsConfig(cfg); c != nil {
-			version := res.Plan.Elasticsearch.Version
-			res.Plan.Elasticsearch = c
-			res.Plan.Elasticsearch.Version = version
-		}
+		// This will never be nil since it contains the version.
+		expandEsConfig(cfg, res.Plan.Elasticsearch)
 	}
 
 	if rawSettings, ok := es["monitoring_settings"]; ok {
@@ -105,99 +97,128 @@ func expandEsResource(raw interface{}, dt string) (*models.ElasticsearchPayload,
 		// }
 	}
 
-	return &res, nil
+	return res, nil
 }
 
 // expandEsTopology expands a flattened topology
-func expandEsTopology(raw interface{}) ([]*models.ElasticsearchClusterTopologyElement, error) {
+func expandEsTopology(raw interface{}, topologies []*models.ElasticsearchClusterTopologyElement) ([]*models.ElasticsearchClusterTopologyElement, error) {
 	var rawTopologies = raw.([]interface{})
-	var res = make([]*models.ElasticsearchClusterTopologyElement, 0, len(rawTopologies))
-	for _, rawTop := range rawTopologies {
+	var res = make([]*models.ElasticsearchClusterTopologyElement, 0)
+	for i, rawTop := range rawTopologies {
 		var topology = rawTop.(map[string]interface{})
-		var nodeType = parseEsNodeType(topology)
+		var icID string
+		if id, ok := topology["instance_configuration_id"]; ok {
+			icID = id.(string)
+		}
+		// When a topology element is set but no instance_configuration_id
+		// is set, then obtain the instance_configuration_id from the topology
+		// element.
+		if t := defaultEsTopology(topologies); icID == "" && len(t) >= i {
+			icID = t[i].InstanceConfigurationID
+		}
 
 		size, err := util.ParseTopologySize(topology)
 		if err != nil {
 			return nil, err
 		}
 
-		var elem = models.ElasticsearchClusterTopologyElement{
-			Size:     &size,
-			NodeType: &nodeType,
+		elem, err := matchEsTopology(icID, topologies)
+		if err != nil {
+			return nil, err
 		}
-
-		if id, ok := topology["instance_configuration_id"]; ok {
-			elem.InstanceConfigurationID = id.(string)
+		if size != nil {
+			elem.Size = size
 		}
 
 		if zones, ok := topology["zone_count"]; ok {
-			elem.ZoneCount = int32(zones.(int))
-		}
-
-		if nodecount, ok := topology["node_count_per_zone"]; ok {
-			elem.NodeCountPerZone = int32(nodecount.(int))
+			if z := zones.(int); z > 0 {
+				elem.ZoneCount = int32(z)
+			}
 		}
 
 		if c, ok := topology["config"]; ok {
-			elem.Elasticsearch = expandEsConfig(c)
+			elem.Elasticsearch = expandEsConfig(c, elem.Elasticsearch)
 		}
 
-		res = append(res, &elem)
+		res = append(res, elem)
 	}
 
 	return res, nil
 }
 
-func parseEsNodeType(topology map[string]interface{}) models.ElasticsearchNodeType {
-	var result models.ElasticsearchNodeType
-	if val, ok := topology["node_type_data"]; ok {
-		result.Data = ec.Bool(val.(bool))
+func expandEsConfig(raw interface{}, esCfg *models.ElasticsearchConfiguration) *models.ElasticsearchConfiguration {
+	if esCfg == nil {
+		esCfg = &models.ElasticsearchConfiguration{}
 	}
-
-	if val, ok := topology["node_type_master"]; ok {
-		result.Master = ec.Bool(val.(bool))
-	}
-
-	if val, ok := topology["node_type_ingest"]; ok {
-		result.Ingest = ec.Bool(val.(bool))
-	}
-
-	if val, ok := topology["node_type_ml"]; ok {
-		result.Ml = ec.Bool(val.(bool))
-	}
-
-	return result
-}
-
-func expandEsConfig(raw interface{}) *models.ElasticsearchConfiguration {
-	var res = &models.ElasticsearchConfiguration{}
 	for _, rawCfg := range raw.([]interface{}) {
 		var cfg = rawCfg.(map[string]interface{})
 		if settings, ok := cfg["user_settings_json"]; ok && settings != nil {
 			if s, ok := settings.(string); ok && s != "" {
-				res.UserSettingsJSON = settings
+				esCfg.UserSettingsJSON = settings
 			}
 		}
 		if settings, ok := cfg["user_settings_override_json"]; ok && settings != nil {
 			if s, ok := settings.(string); ok && s != "" {
-				res.UserSettingsOverrideJSON = settings
+				esCfg.UserSettingsOverrideJSON = settings
 			}
 		}
 		if settings, ok := cfg["user_settings_yaml"]; ok {
-			res.UserSettingsYaml = settings.(string)
+			esCfg.UserSettingsYaml = settings.(string)
 		}
 		if settings, ok := cfg["user_settings_override_yaml"]; ok {
-			res.UserSettingsOverrideYaml = settings.(string)
+			esCfg.UserSettingsOverrideYaml = settings.(string)
 		}
 
 		if v, ok := cfg["plugins"]; ok {
-			res.EnabledBuiltInPlugins = util.ItemsToString(v.(*schema.Set).List())
+			esCfg.EnabledBuiltInPlugins = util.ItemsToString(v.(*schema.Set).List())
 		}
 	}
 
-	if !reflect.DeepEqual(res, &models.ElasticsearchConfiguration{}) {
-		return res
+	if !reflect.DeepEqual(esCfg, &models.ElasticsearchConfiguration{}) {
+		return esCfg
 	}
 
 	return nil
+}
+
+func discardEsZeroSize(topologies []*models.ElasticsearchClusterTopologyElement) (result []*models.ElasticsearchClusterTopologyElement) {
+	for _, topology := range topologies {
+		if topology.Size == nil || topology.Size.Value == nil || *topology.Size.Value == 0 {
+			continue
+		}
+		result = append(result, topology)
+	}
+	return result
+}
+
+// defaultEsTopology iterates over all the templated topology elements and
+// sets the size to the default when the template size is smaller than the
+// deployment template default, the same is done on the ZoneCount. It discards
+// any elements where the size is == 0, since it means that different Instance
+// configurations are available to configure but are not included in the
+// default deployment template.
+func defaultEsTopology(topology []*models.ElasticsearchClusterTopologyElement) []*models.ElasticsearchClusterTopologyElement {
+	topology = discardEsZeroSize(topology)
+	for _, t := range topology {
+		if *t.Size.Value < minimumElasticsearchSize {
+			t.Size.Value = ec.Int32(minimumElasticsearchSize)
+		}
+		if t.ZoneCount < minimumZoneCount {
+			t.ZoneCount = minimumZoneCount
+		}
+	}
+
+	return topology
+}
+
+func matchEsTopology(id string, topologies []*models.ElasticsearchClusterTopologyElement) (*models.ElasticsearchClusterTopologyElement, error) {
+	for _, t := range topologies {
+		if t.InstanceConfigurationID == id {
+			return t, nil
+		}
+	}
+	return nil, fmt.Errorf(
+		`elasticsearch topology: invalid instance_configuration_id: "%s" doesn't match any of the deployment template instance configurations`,
+		id,
+	)
 }

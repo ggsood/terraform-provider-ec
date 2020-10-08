@@ -12,7 +12,7 @@ resource "ec_deployment" "basic" {
     }
     topology {
       instance_configuration_id = "aws.data.highio.i3"
-      memory_per_node           = "1g"
+      size                      = "1g"
     }
   }
 
@@ -36,7 +36,7 @@ resource "ec_deployment" "basic" {
 
   enterprise_search {
     config {
-      user_settings_yaml = "ent_search.auth.source: standard"
+      user_settings_yaml = "ent_search.login_assistance_message: somemessage"
     }
     topology {
       instance_configuration_id = "aws.enterprisesearch.m5d"

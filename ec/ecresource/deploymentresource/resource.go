@@ -26,12 +26,12 @@ import (
 // Resource returns the ec_deployment resource schema.
 func Resource() *schema.Resource {
 	return &schema.Resource{
-		CreateContext: create,
-		ReadContext:   read,
-		UpdateContext: update,
-		DeleteContext: delete,
+		CreateContext: createResource,
+		ReadContext:   readResource,
+		UpdateContext: updateResource,
+		DeleteContext: deleteResource,
 
-		Schema: NewSchema(),
+		Schema: newSchema(),
 
 		Description: "Elastic Cloud Deployment resource",
 		Importer: &schema.ResourceImporter{

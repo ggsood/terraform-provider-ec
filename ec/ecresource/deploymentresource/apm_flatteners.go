@@ -28,7 +28,7 @@ func flattenApmResources(in []*models.ApmResourceInfo, name string) []interface{
 	var result = make([]interface{}, 0, len(in))
 	for _, res := range in {
 		var m = make(map[string]interface{})
-		if util.IsCurrentApmPlanEmpty(res) {
+		if util.IsCurrentApmPlanEmpty(res) || isApmResourceStopped(res) {
 			continue
 		}
 
@@ -83,8 +83,9 @@ func flattenApmTopology(plan *models.ApmPlan) []interface{} {
 			m["instance_configuration_id"] = topology.InstanceConfigurationID
 		}
 
-		if *topology.Size.Resource == "memory" {
-			m["memory_per_node"] = util.MemoryToState(*topology.Size.Value)
+		if topology.Size != nil {
+			m["size"] = util.MemoryToState(*topology.Size.Value)
+			m["size_resource"] = *topology.Size.Resource
 		}
 
 		m["zone_count"] = topology.ZoneCount

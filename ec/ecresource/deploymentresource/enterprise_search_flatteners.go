@@ -28,7 +28,7 @@ func flattenEssResources(in []*models.EnterpriseSearchResourceInfo, name string)
 	var result = make([]interface{}, 0, len(in))
 	for _, res := range in {
 		var m = make(map[string]interface{})
-		if util.IsCurrentEssPlanEmpty(res) {
+		if util.IsCurrentEssPlanEmpty(res) || isEssResourceStopped(res) {
 			continue
 		}
 
@@ -85,8 +85,9 @@ func flattenEssTopology(plan *models.EnterpriseSearchPlan) []interface{} {
 			m["instance_configuration_id"] = topology.InstanceConfigurationID
 		}
 
-		if *topology.Size.Resource == "memory" {
-			m["memory_per_node"] = util.MemoryToState(*topology.Size.Value)
+		if topology.Size != nil {
+			m["size"] = util.MemoryToState(*topology.Size.Value)
+			m["size_resource"] = *topology.Size.Resource
 		}
 
 		if nt := topology.NodeType; nt != nil {

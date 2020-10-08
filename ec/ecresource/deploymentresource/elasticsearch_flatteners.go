@@ -30,7 +30,7 @@ func flattenEsResources(in []*models.ElasticsearchResourceInfo, name string) []i
 	var result = make([]interface{}, 0, len(in))
 	for _, res := range in {
 		var m = make(map[string]interface{})
-		if util.IsCurrentEsPlanEmpty(res) {
+		if util.IsCurrentEsPlanEmpty(res) || isEsResourceStopped(res) {
 			continue
 		}
 
@@ -92,11 +92,12 @@ func flattenEsTopology(plan *models.ElasticsearchClusterPlan) []interface{} {
 
 		// TODO: Check legacy plans.
 		// if topology.MemoryPerNode > 0 {
-		// 	m["memory_per_node"] = strconv.Itoa(int(topology.MemoryPerNode))
+		// 	m["size"] = strconv.Itoa(int(topology.MemoryPerNode))
 		// }
 
-		if *topology.Size.Resource == "memory" {
-			m["memory_per_node"] = util.MemoryToState(*topology.Size.Value)
+		if topology.Size != nil {
+			m["size"] = util.MemoryToState(*topology.Size.Value)
+			m["size_resource"] = *topology.Size.Resource
 		}
 
 		if nt := topology.NodeType; nt != nil {
@@ -115,10 +116,6 @@ func flattenEsTopology(plan *models.ElasticsearchClusterPlan) []interface{} {
 			if nt.Ml != nil {
 				m["node_type_ml"] = *nt.Ml
 			}
-		}
-
-		if topology.NodeCountPerZone > 0 {
-			m["node_count_per_zone"] = topology.NodeCountPerZone
 		}
 
 		m["zone_count"] = topology.ZoneCount
