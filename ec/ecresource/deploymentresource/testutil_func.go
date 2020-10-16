@@ -50,26 +50,17 @@ func parseDeploymentTemplate(t *testing.T, name string) *models.DeploymentTempla
 	return &res
 }
 
-// esResource returns the ElaticsearchPayload from a deployment
-// template.
-func esResource(res *models.DeploymentTemplateInfoV2) *models.ElasticsearchPayload {
-	return res.DeploymentTemplate.Resources.Elasticsearch[0]
-}
+func openDeploymentGet(t *testing.T, name string) *models.DeploymentGetResponse {
+	t.Helper()
+	f, err := os.Open(name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
 
-// kibanaResource returns the KibanaPayload from a deployment
-// template.
-func kibanaResource(res *models.DeploymentTemplateInfoV2) *models.KibanaPayload {
-	return res.DeploymentTemplate.Resources.Kibana[0]
-}
-
-// apmResource returns the ApmPayload from a deployment
-// template.
-func apmResource(res *models.DeploymentTemplateInfoV2) *models.ApmPayload {
-	return res.DeploymentTemplate.Resources.Apm[0]
-}
-
-// essResource returns the EnterpriseSearchPayload from a deployment
-// template.
-func essResource(res *models.DeploymentTemplateInfoV2) *models.EnterpriseSearchPayload {
-	return res.DeploymentTemplate.Resources.EnterpriseSearch[0]
+	var res models.DeploymentGetResponse
+	if err := json.NewDecoder(f).Decode(&res); err != nil {
+		t.Fatal(err)
+	}
+	return &res
 }
