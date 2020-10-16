@@ -18,6 +18,7 @@
 package deploymentresource
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
 
@@ -75,8 +76,9 @@ func expandEsResource(raw interface{}, res *models.ElasticsearchPayload) (*model
 	}
 
 	if cfg, ok := es["config"]; ok {
-		// This will never be nil since it contains the version.
-		expandEsConfig(cfg, res.Plan.Elasticsearch)
+		if err := expandEsConfig(cfg, res.Plan.Elasticsearch); err != nil {
+			return nil, err
+		}
 	}
 
 	if rawSettings, ok := es["monitoring_settings"]; ok {
@@ -137,7 +139,15 @@ func expandEsTopology(raw interface{}, topologies []*models.ElasticsearchCluster
 		}
 
 		if c, ok := topology["config"]; ok {
-			elem.Elasticsearch = expandEsConfig(c, elem.Elasticsearch)
+			if elem.Elasticsearch == nil && c != nil {
+				elem.Elasticsearch = &models.ElasticsearchConfiguration{}
+			}
+			if err = expandEsConfig(c, elem.Elasticsearch); err != nil {
+				return nil, err
+			}
+			if reflect.DeepEqual(elem.Elasticsearch, &models.ElasticsearchConfiguration{}) {
+				elem.Elasticsearch = nil
+			}
 		}
 
 		res = append(res, elem)
@@ -146,20 +156,25 @@ func expandEsTopology(raw interface{}, topologies []*models.ElasticsearchCluster
 	return res, nil
 }
 
-func expandEsConfig(raw interface{}, esCfg *models.ElasticsearchConfiguration) *models.ElasticsearchConfiguration {
-	if esCfg == nil {
-		esCfg = &models.ElasticsearchConfiguration{}
-	}
+func expandEsConfig(raw interface{}, esCfg *models.ElasticsearchConfiguration) error {
 	for _, rawCfg := range raw.([]interface{}) {
 		var cfg = rawCfg.(map[string]interface{})
 		if settings, ok := cfg["user_settings_json"]; ok && settings != nil {
 			if s, ok := settings.(string); ok && s != "" {
-				esCfg.UserSettingsJSON = settings
+				if err := json.Unmarshal([]byte(s), &esCfg.UserSettingsJSON); err != nil {
+					return fmt.Errorf(
+						"failed expanding elasticsearch user_settings_json: %w", err,
+					)
+				}
 			}
 		}
 		if settings, ok := cfg["user_settings_override_json"]; ok && settings != nil {
 			if s, ok := settings.(string); ok && s != "" {
-				esCfg.UserSettingsOverrideJSON = settings
+				if err := json.Unmarshal([]byte(s), &esCfg.UserSettingsOverrideJSON); err != nil {
+					return fmt.Errorf(
+						"failed expanding elasticsearch user_settings_override_json: %w", err,
+					)
+				}
 			}
 		}
 		if settings, ok := cfg["user_settings_yaml"]; ok {
@@ -172,10 +187,6 @@ func expandEsConfig(raw interface{}, esCfg *models.ElasticsearchConfiguration) *
 		if v, ok := cfg["plugins"]; ok {
 			esCfg.EnabledBuiltInPlugins = util.ItemsToString(v.(*schema.Set).List())
 		}
-	}
-
-	if !reflect.DeepEqual(esCfg, &models.ElasticsearchConfiguration{}) {
-		return esCfg
 	}
 
 	return nil
@@ -221,4 +232,18 @@ func matchEsTopology(id string, topologies []*models.ElasticsearchClusterTopolog
 		`elasticsearch topology: invalid instance_configuration_id: "%s" doesn't match any of the deployment template instance configurations`,
 		id,
 	)
+}
+
+// esResource returns the ElaticsearchPayload from a deployment
+// template or an empty version of the payload.
+func esResource(res *models.DeploymentTemplateInfoV2) *models.ElasticsearchPayload {
+	if len(res.DeploymentTemplate.Resources.Elasticsearch) == 0 {
+		return &models.ElasticsearchPayload{
+			Plan: &models.ElasticsearchClusterPlan{
+				Elasticsearch: &models.ElasticsearchConfiguration{},
+			},
+			Settings: &models.ElasticsearchClusterSettings{},
+		}
+	}
+	return res.DeploymentTemplate.Resources.Elasticsearch[0]
 }
