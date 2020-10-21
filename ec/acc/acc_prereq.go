@@ -15,14 +15,15 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// +build acceptance
-
 package acc
 
 import (
+	"net/http"
 	"os"
 	"testing"
 
+	"github.com/elastic/cloud-sdk-go/pkg/api"
+	"github.com/elastic/cloud-sdk-go/pkg/auth"
 	"github.com/elastic/terraform-provider-ec/ec"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
@@ -65,5 +66,66 @@ func testAccPreCheck(t *testing.T) {
 
 	if apikey != "" && (username != "" || password != "") {
 		t.Fatal("Only one of API Key or Username / Password can be specified to execute acceptance tests")
+	}
+}
+
+func newAPI() (*api.API, error) {
+	var host = api.ESSEndpoint
+	if h := os.Getenv("EC_HOST"); h != "" {
+		host = h
+	}
+	if h := os.Getenv("EC_ENDPOINT"); h != "" {
+		host = h
+	}
+
+	var apikey string
+	if k := os.Getenv("EC_API_KEY"); k != "" {
+		apikey = k
+	}
+
+	var username string
+	if k := os.Getenv("EC_USER"); k != "" {
+		username = k
+	}
+	if k := os.Getenv("EC_USERNAME"); k != "" {
+		username = k
+	}
+
+	var password string
+	if k := os.Getenv("EC_UPASS"); k != "" {
+		password = k
+	}
+	if k := os.Getenv("EC_PASSWORD"); k != "" {
+		password = k
+	}
+
+	authWriter, err := auth.NewAuthWriter(auth.Config{
+		APIKey: apikey, Username: username, Password: password,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	var insecure bool
+	if host != api.ESSEndpoint {
+		insecure = true
+	}
+
+	return api.NewAPI(api.Config{
+		ErrorDevice:   os.Stdout,
+		Client:        &http.Client{},
+		AuthWriter:    authWriter,
+		Host:          host,
+		SkipTLSVerify: insecure,
+		Retries:       ec.DefaultHTTPRetries,
+	})
+}
+
+// requiresAPIConn should be called in functions which would be executed by the
+// Go testing framework and require external HTTP access, said functions should
+// call this one to avoid the tests errorring because of failing prequisites.
+func requiresAPIConn(t *testing.T) {
+	if os.Getenv("TF_ACC") != "1" {
+		t.Skip()
 	}
 }

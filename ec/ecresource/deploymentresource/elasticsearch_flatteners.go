@@ -29,7 +29,7 @@ import (
 
 // flattenEsResources takes in Elasticsearch resource models and returns its
 // flattened form.
-func flattenEsResources(in []*models.ElasticsearchResourceInfo, name string) []interface{} {
+func flattenEsResources(in []*models.ElasticsearchResourceInfo, name string, remotes models.RemoteResources) []interface{} {
 	var result = make([]interface{}, 0, len(in))
 	for _, res := range in {
 		var m = make(map[string]interface{})
@@ -58,10 +58,6 @@ func flattenEsResources(in []*models.ElasticsearchResourceInfo, name string) []i
 			m["topology"] = topology
 		}
 
-		for k, v := range flattenEsSettings(res.Info) {
-			m[k] = v
-		}
-
 		var metadata = res.Info.Metadata
 		if metadata != nil && metadata.CloudID != "" {
 			m["cloud_id"] = metadata.CloudID
@@ -73,6 +69,10 @@ func flattenEsResources(in []*models.ElasticsearchResourceInfo, name string) []i
 
 		if c := flattenEsConfig(plan.Elasticsearch); len(c) > 0 {
 			m["config"] = c
+		}
+
+		if r := flattenEsRemotes(remotes); len(r) > 0 {
+			m["remote_cluster"] = r
 		}
 
 		result = append(result, m)
@@ -172,24 +172,27 @@ func flattenEsConfig(cfg *models.ElasticsearchConfiguration) []interface{} {
 	return []interface{}{m}
 }
 
-func flattenEsSettings(info *models.ElasticsearchClusterInfo) map[string]interface{} {
-	// TODO Check if this is set in ECE; if not, remove entirely.
-	// var validMonitoringSettings = info.Settings != nil && info.Settings.Monitoring != nil
-	// validMonitoringSettings = validMonitoringSettings && info.Settings.Monitoring.TargetClusterID != nil
-	// if validMonitoringSettings {
-	// 	m["monitoring_settings"] = []interface{}{map[string]interface{}{
-	// 		"target_cluster_id": *info.Settings.Monitoring.TargetClusterID,
-	// 	}}
-	// }
+func flattenEsRemotes(in models.RemoteResources) []interface{} {
+	var res []interface{}
+	for _, r := range in.Resources {
+		var m = make(map[string]interface{})
+		if r.DeploymentID != nil && *r.DeploymentID != "" {
+			m["deployment_id"] = *r.DeploymentID
+		}
 
-	var m = make(map[string]interface{})
-	var monitoringInfo = info.ElasticsearchMonitoringInfo != nil
-	monitoringInfo = monitoringInfo && info.ElasticsearchMonitoringInfo != nil
-	if monitoringInfo && len(info.ElasticsearchMonitoringInfo.DestinationClusterIds) > 0 {
-		m["monitoring_settings"] = []interface{}{map[string]interface{}{
-			"target_cluster_id": info.ElasticsearchMonitoringInfo.DestinationClusterIds[0],
-		}}
+		if r.ElasticsearchRefID != nil && *r.ElasticsearchRefID != "" {
+			m["ref_id"] = *r.ElasticsearchRefID
+		}
+
+		if r.Alias != nil && *r.Alias != "" {
+			m["alias"] = *r.Alias
+		}
+
+		if r.SkipUnavailable != nil {
+			m["skip_unavailable"] = *r.SkipUnavailable
+		}
+		res = append(res, m)
 	}
 
-	return m
+	return res
 }
